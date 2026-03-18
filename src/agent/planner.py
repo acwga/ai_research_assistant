@@ -5,7 +5,6 @@ from langchain_core.tools import tool
 from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
 from src.prompts import PLANNER_PROMPT
 from openai import OpenAI
-import json
 
 client = OpenAI(
     api_key=DASHSCOPE_API_KEY,

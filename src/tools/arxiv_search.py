@@ -6,9 +6,16 @@ from langchain_community.tools import ArxivQueryRun
 from langchain_community.utilities import ArxivAPIWrapper
 from langchain_core.tools import tool
 
-def get_arxiv_tool():
+@tool
+def search_arxiv(query: str) -> str:
     """
-    创建并返回Arxiv搜索工具。
+    搜索 arXiv 学术论文
+
+    Args:
+        query: 搜索关键词，例如 "retrieval augmented generation"
+    
+    Returns:
+        论文标题、作者、摘要等信息
     """
     arxiv_api_wrapper = ArxivAPIWrapper(
         top_k_results=5,
@@ -17,7 +24,7 @@ def get_arxiv_tool():
         load_max_docs=10
     )
 
-    arxiv__tool = ArxivQueryRun(
+    arxiv_tool = ArxivQueryRun(
         api_wrapper=arxiv_api_wrapper,
         description=(
             "一个用于搜索 arXiv 学术论文的工具。 "
@@ -28,9 +35,8 @@ def get_arxiv_tool():
         )
     )
 
-    return arxiv__tool
+    return arxiv_tool.invoke(query)
 
 if __name__ == "__main__":
-    tool = get_arxiv_tool()
-    result = tool.invoke("retrieval augmented generation survey")
+    result = search_arxiv.invoke({"query": "retrieval augmented generation survey"})
     print(result)

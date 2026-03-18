@@ -198,12 +198,16 @@ class ReActAgent:
         # 提取最终答案并保存到历史
         if final_state and "llm" in final_state:
             for msg in final_state["llm"]["messages"]:
-                if msg not in self.conversation_history:  # 避免重复
+                if msg not in self.conversation_history:
                     self.conversation_history.append(msg)
             
             for msg in reversed(final_state["llm"]["messages"]):
                 if "Final Answer:" in msg.content:
                     return msg.content.split("Final Answer:")[-1].strip()
+            
+            last_msg = final_state["llm"]["messages"][-1]
+            if hasattr(last_msg, "content") and last_msg.content:
+                return last_msg.content
         
         return "未能生成最终答案"
     

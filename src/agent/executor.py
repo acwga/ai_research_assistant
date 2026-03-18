@@ -62,7 +62,8 @@ class ResearchExecutor:
             if verbose:
                 print(f"\n  执行步骤 {i}/{len(steps)}：{step}")
 
-            result = self.agent.run(step)
+            enhanced_step = f"请使用可用的工具来完成以下任务：{step}"
+            result = self.agent.run(enhanced_step)
 
             # 记录结果
             step_result = f"步骤{i}：{step}\n结果：{result[:200]}..."
@@ -159,6 +160,6 @@ if __name__ == "__main__":
 
     tools = [search_arxiv, search_github_repositories, analyze_paper, generate_code, write_report]
 
-    result = research("Transformer模型简介", tools)
+    result = research("LoRA微调技术的最新进展有哪些？", tools)
     print("\n最终研究报告：")
     print(result)

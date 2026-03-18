@@ -59,11 +59,17 @@ class ReActAgent:
                  "content": m.content}
                  for m in messages]
             ],
-            temperature=0.3,
+            temperature=0.1,
             max_tokens=500
         )
 
         ai_message = response.choices[0].message.content
+
+        # 检查输出中是否包含 Action: 或 Final Answer:（忽略大小写）
+        if not ("Action:" in ai_message or "Final Answer:" in ai_message):
+            # 不符合格式，返回一条强制要求重试的消息
+            force_message = "格式错误：请严格按照 ReAct 格式输出，\
+            必须包含 Action: 和 Action Input: 或 Final Answer:。请重新生成。"
         
         return {
             "messages": messages + [AIMessage(content=ai_message)],

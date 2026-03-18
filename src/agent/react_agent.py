@@ -94,13 +94,7 @@ class ReActAgent:
         else:
             try:
                 tool = self.tools[tool_name]
-                if isinstance(tool_input, dict):
-                    result = tool.invoke(tool_input)
-                else:
-                    try:
-                        result = tool.invoke(tool_input)
-                    except:
-                        result = tool.invoke({"input": tool_input})
+                result = tool.invoke(tool_input)
             except Exception as e:
                 result = f"工具执行出错：{str(e)}"
         

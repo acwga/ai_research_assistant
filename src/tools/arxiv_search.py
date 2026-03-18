@@ -6,6 +6,24 @@ from langchain_community.tools import ArxivQueryRun
 from langchain_community.utilities import ArxivAPIWrapper
 from langchain_core.tools import tool
 
+arxiv_api_wrapper = ArxivAPIWrapper(
+        top_k_results=5,
+        ARXIV_MAX_QUERY_LENGTH=300,
+        continue_on_failure=True,
+        load_max_docs=10
+    )
+
+arxiv_tool = ArxivQueryRun(
+    api_wrapper=arxiv_api_wrapper,
+    description=(
+        "一个用于搜索 arXiv 学术论文的工具。 "
+        "输入应该是英文的学术关键词或短语，例如："
+        "'attention is all you need', 'LoRA fine-tuning', 'diffusion models survey'。"
+        "会返回论文标题、作者、摘要、pdf链接等信息。"
+        "适合查找最新论文、技术综述、方法论。"
+    )
+)
+
 @tool
 def search_arxiv(query: str) -> str:
     """
@@ -17,23 +35,6 @@ def search_arxiv(query: str) -> str:
     Returns:
         论文标题、作者、摘要等信息
     """
-    arxiv_api_wrapper = ArxivAPIWrapper(
-        top_k_results=5,
-        ARXIV_MAX_QUERY_LENGTH=300,
-        continue_on_failure=True,
-        load_max_docs=10
-    )
-
-    arxiv_tool = ArxivQueryRun(
-        api_wrapper=arxiv_api_wrapper,
-        description=(
-            "一个用于搜索 arXiv 学术论文的工具。 "
-            "输入应该是英文的学术关键词或短语，例如："
-            "'attention is all you need', 'LoRA fine-tuning', 'diffusion models survey'。"
-            "会返回论文标题、作者、摘要、pdf链接等信息。"
-            "适合查找最新论文、技术综述、方法论。"
-        )
-    )
 
     return arxiv_tool.invoke(query)
 

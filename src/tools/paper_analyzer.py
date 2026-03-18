@@ -5,6 +5,12 @@
 from langchain_core.tools import tool
 from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
 from openai import OpenAI
+from src.prompts import (
+    PAPER_ANALYSIS_SYSTEM_PROMPT, 
+    PAPER_ANALYSIS_USER_PROMPT_TEMPLATE,
+    PAPER_COMPARISON_SYSTEM_PROMPT, 
+    PAPER_COMPARISON_USER_PROMPT_TEMPLATE
+)
 
 client = OpenAI(
     api_key=DASHSCOPE_API_KEY,
@@ -23,36 +29,16 @@ def analyze_paper(paper_title: str, abstract: str) -> str:
     Returns:
         结构化分析结果
     """
-    prompt = f"""
-    请分析以下论文摘要，提取关键信息：
-    
-    论文标题：{paper_title}
-    摘要内容：{abstract}
-    
-    请按以下格式输出：
-    
-    ## 核心贡献
-    [一句话总结论文的核心贡献]
-    
-    ## 主要方法
-    [列出1-3个主要方法或技术]
-    
-    ## 实验结果
-    [如果有实验结果，简要总结]
-    
-    ## 优缺点
-    - 优点：[列出2-3个优点]
-    - 局限：[列出1-2个局限性]
-    
-    ## 适用场景
-    [这个技术最适合用在什么场景]
-    """
+    prompt = PAPER_ANALYSIS_USER_PROMPT_TEMPLATE.format(
+        paper_title=paper_title,
+        abstract=abstract
+    )
 
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
-                {"role": "system", "content": "你是一个专业的论文分析助手，能够快速提取论文核心信息。"},
+                {"role": "system", "content": PAPER_ANALYSIS_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,
@@ -87,31 +73,16 @@ def compare_papers(papers_info: list) -> str:
     for i, paper in enumerate(papers_info, 1):
         papers_text += f"论文{i}：{paper['title']}\n摘要：{paper['abstract'][:300]}...\n\n"
 
-    prompt = f"""
-    请对比以下{len(papers_info)}篇论文：
-    
-    {papers_text}
-    
-    请按以下格式输出对比分析：
-    
-    ## 方法对比
-    [各论文使用的主要方法对比]
-    
-    ## 创新点对比
-    [各论文的创新之处对比]
-    
-    ## 优缺点对比
-    [各论文的优缺点对比]
-    
-    ## 总结建议
-    [根据对比结果，给出研究建议]
-    """
+    prompt = PAPER_COMPARISON_USER_PROMPT_TEMPLATE.format(
+        num_papers=len(papers_info),
+        papers_text=papers_text
+    )
 
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
-                {"role": "system", "content": "你是一个专业的论文对比分析专家。"},
+                {"role": "system", "content": PAPER_COMPARISON_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,

@@ -5,6 +5,12 @@
 from langchain_core.tools import tool
 from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
 from openai import OpenAI
+from src.prompts import (
+    CODE_GENERATION_SYSTEM_PROMPT_TEMPLATE,
+    CODE_GENERATION_USER_PROMPT_TEMPLATE,
+    CODE_EXPLAIN_SYSTEM_PROMPT,
+    CODE_EXPLAIN_USER_PROMPT_TEMPLATE
+)
 
 client = OpenAI(
     api_key=DASHSCOPE_API_KEY,
@@ -24,47 +30,18 @@ def generate_code(technique: str, language: str = "python", context: str = "") -
     Returns:
         生成的代码示例和说明
     """
-    prompt = f"""
-    请为以下技术生成简洁的示例代码：
-    
-    技术：{technique}
-    编程语言：{language}
-    {f'额外要求：{context}' if context else ''}
-    
-    要求：
-    1. 代码要简洁明了，突出核心概念
-    2. 添加必要的注释解释关键步骤
-    3. 如果代码需要依赖，说明需要安装的包
-    4. 提供一个简单的使用示例
-    
-    请按以下格式输出：
-    
-    ## {technique} 代码示例
-    
-    ### 依赖安装
-    ```bash
-    [需要的安装命令]
-    ```
-    
-    ### 核心代码
-    ```{language}
-    [代码实现]
-    ```
-    
-    ### 使用示例
-    ```{language}
-    [如何使用这段代码的示例]
-    ```
-    
-    ### 说明
-    [代码的关键点解释和使用注意事项]
-    """
+    prompt = CODE_GENERATION_USER_PROMPT_TEMPLATE.format(
+        technique=technique,
+        language=language,
+        context=context,
+        context_text=f'额外要求：{context}' if context else ''
+    )
 
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
-                {"role": "system", "content": f"你是一个专业的{language}工程师，擅长生成清晰、可运行的示例代码。"},
+                {"role": "system", "content": CODE_GENERATION_SYSTEM_PROMPT_TEMPLATE.format(language=language)},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,
@@ -88,33 +65,16 @@ def explain_code(code: str, language: str = "python") -> str:
     Returns:
         代码解释说明
     """
-    prompt = f"""
-    请解释以下{language}代码的功能和原理：
-    
-    ```{language}
-    {code}
-    ```
-    
-    请按以下格式输出：
-    
-    ## 代码功能
-    [这段代码的主要功能]
-    
-    ## 逐行解释
-    [关键行的解释]
-    
-    ## 核心原理
-    [使用的技术原理]
-    
-    ## 可能的改进
-    [如果有，可以如何优化]
-    """
+    prompt = CODE_EXPLAIN_USER_PROMPT_TEMPLATE.format(
+        language=language,
+        code=code
+    )
 
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
-                {"role": "system", "content": "你是一个耐心的编程导师，擅长解释代码。"},
+                {"role": "system", "content": CODE_EXPLAIN_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,

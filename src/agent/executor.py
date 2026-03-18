@@ -45,6 +45,9 @@ class ResearchExecutor:
             print("\n📋 步骤1：任务规划")
             print("-" * 30)
         
+        # 清空Agent的历史
+        self.agent.clear_history()
+        
         steps = self.planner.plan(user_query)
 
         if verbose:
@@ -59,16 +62,7 @@ class ResearchExecutor:
             if verbose:
                 print(f"\n  执行步骤 {i}/{len(steps)}：{step}")
 
-            # 构建上下文信息
-            context = f"""当前进度：步骤 {i}/{len(steps)}
-当前任务：{step}
-已完成的工作：
-{chr(10).join([f'- {r}' for r in step_results]) if step_results else '- 还没有完成任何步骤'}
-
-请执行当前步骤，完成后告诉我结果。"""
-            
-            # 执行步骤
-            result = self.agent.run(context)
+            result = self.agent.run(step)
 
             # 记录结果
             step_result = f"步骤{i}：{step}\n结果：{result[:200]}..."

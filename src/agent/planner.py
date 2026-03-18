@@ -2,13 +2,13 @@
 任务规划器 (Planner)
 """
 from langchain_core.tools import tool
-from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
+from src.config import OLLAMA_BASE_URL, MODEL_NAME
 from src.prompts import PLANNER_PROMPT
 from openai import OpenAI
 
 client = OpenAI(
-    api_key=DASHSCOPE_API_KEY,
-    base_url=DASHSCOPE_BASE_URL
+    api_key="ollama",
+    base_url=OLLAMA_BASE_URL
 )
 
 class ResearchPlanner:

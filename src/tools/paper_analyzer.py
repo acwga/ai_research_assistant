@@ -3,7 +3,7 @@
 从论文摘要中提取关键信息，用于后续报告生成
 """
 from langchain_core.tools import tool
-from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
+from src.config import OLLAMA_BASE_URL, MODEL_NAME
 from openai import OpenAI
 from src.prompts import (
     PAPER_ANALYSIS_SYSTEM_PROMPT, 
@@ -13,8 +13,8 @@ from src.prompts import (
 )
 
 client = OpenAI(
-    api_key=DASHSCOPE_API_KEY,
-    base_url=DASHSCOPE_BASE_URL
+    api_key="ollama",
+    base_url=OLLAMA_BASE_URL
 )
 
 @tool

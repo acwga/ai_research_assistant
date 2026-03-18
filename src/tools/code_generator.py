@@ -3,7 +3,7 @@
 根据论文描述或技术需求生成示例代码
 """
 from langchain_core.tools import tool
-from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
+from src.config import OLLAMA_BASE_URL, MODEL_NAME
 from openai import OpenAI
 from src.prompts import (
     CODE_GENERATION_SYSTEM_PROMPT_TEMPLATE,
@@ -13,8 +13,8 @@ from src.prompts import (
 )
 
 client = OpenAI(
-    api_key=DASHSCOPE_API_KEY,
-    base_url=DASHSCOPE_BASE_URL
+    api_key="ollama",
+    base_url=OLLAMA_BASE_URL
 )
 
 @tool

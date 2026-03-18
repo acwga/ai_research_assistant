@@ -3,7 +3,7 @@
 整合搜索结果和分析，生成结构化研究报告
 """
 from langchain_core.tools import tool
-from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
+from src.config import OLLAMA_BASE_URL, MODEL_NAME
 from openai import OpenAI
 from datetime import datetime
 from src.prompts import (
@@ -14,8 +14,8 @@ from src.prompts import (
 )
 
 client = OpenAI(
-    api_key=DASHSCOPE_API_KEY,
-    base_url=DASHSCOPE_BASE_URL
+    api_key="ollama",
+    base_url=OLLAMA_BASE_URL
 )
 
 @tool

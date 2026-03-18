@@ -5,14 +5,14 @@ from typing import TypedDict, List
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph import StateGraph, START, END
-from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
+from src.config import OLLAMA_BASE_URL, MODEL_NAME
 from src.prompts import REACT_SYSTEM_PROMPT, get_tools_description
 from openai import OpenAI
 import json
 
 client = OpenAI(
-    api_key=DASHSCOPE_API_KEY,
-    base_url=DASHSCOPE_BASE_URL
+    api_key="ollama",
+    base_url=OLLAMA_BASE_URL
 )
 
 # 定义状态
@@ -35,6 +35,7 @@ class ReActAgent:
             tools_description=self.tools_description
         )
         self.graph = self._build_graph()
+        self.conversation_history = []
 
     def _call_llm(self, state: AgentState):
         """
@@ -173,15 +174,18 @@ class ReActAgent:
 
         return workflow.compile()
     
-    def run(self, user_query: str) -> str:
+    def run(self, user_query: str, context: str = "") -> str:
         """
         运行ReAct Agent
         """
         print(f"\n开始研究：{user_query}")
 
+        # 将新查询加入历史
+        self.conversation_history.append(HumanMessage(content=user_query))
+
         # 初始化状态
         initial_state = {
-            "messages": [HumanMessage(content=user_query)],
+            "messages": self.conversation_history.copy(),
             "user_query": user_query,
             "iteration": 0
         }
@@ -191,13 +195,23 @@ class ReActAgent:
         for state in self.graph.stream(initial_state):
             final_state = state
 
-        # 提取最终答案
+        # 提取最终答案并保存到历史
         if final_state and "llm" in final_state:
+            for msg in final_state["llm"]["messages"]:
+                if msg not in self.conversation_history:  # 避免重复
+                    self.conversation_history.append(msg)
+            
             for msg in reversed(final_state["llm"]["messages"]):
                 if "Final Answer:" in msg.content:
                     return msg.content.split("Final Answer:")[-1].strip()
         
         return "未能生成最终答案"
+    
+    def clear_history(self):
+        """
+        清空对话历史
+        """
+        self.conversation_history = []
     
 def create_agent(tools: List[BaseTool]) -> ReActAgent:
     """

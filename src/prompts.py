@@ -111,7 +111,7 @@ SUMMARY_SYSTEM_PROMPT = """
 SUMMARY_USER_PROMPT_TEMPLATE = """
 请将以下步骤的执行结果压缩为一句简洁的摘要，保留关键信息（如找到的论文、性能数据、对比结论等）。
 步骤描述：{step}
-执行结果：{result[:1000]}
+执行结果：{result}
 摘要：
 """
 

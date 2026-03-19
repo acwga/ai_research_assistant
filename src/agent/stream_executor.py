@@ -52,9 +52,9 @@ class StreamingResearchExecutor:
         """
         prompt = SUMMARY_USER_PROMPT_TEMPLATE.format(
             step=step,
-            result=result
+            result=result[:1000]
         )
-        try：
+        try:
             response = self.llm.chat.completions.create(
                 model=MODEL_NAME,
                 messages=[

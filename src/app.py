@@ -53,8 +53,7 @@ if submitted and user_query:
 
         # 创建执行器并开始流式执行
         executor = StreamingResearchExecutor()
-        steps_displayed = False
-        step_index = 0
+        steps = []
         final_report = None
 
         for output in executor.execute(user_query):
@@ -66,7 +65,6 @@ if submitted and user_query:
                         st.write(f"{i}. {step}")
                 # 为每个步骤创建结果占位符
                 result_placeholders = [st.empty() for _ in steps]
-                steps_displayed = True
 
             elif output["type"] == "step_result":
                 idx = output["index"] - 1
@@ -94,7 +92,7 @@ if submitted and user_query:
             st.session_state["history"].append({
                 "query": user_query,
                 "report": final_report,
-                "steps": steps if steps_displayed else [],
+                "steps": steps,
                 "time": datetime.now().strftime("%Y-%m-%d %H:%M")
             })
             st.success("研究完成！")

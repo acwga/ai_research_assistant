@@ -1,165 +1,102 @@
 """
-执行器 (Executor)
-整合 Planner 和 ReAct Agent，执行完整的研究流程
+执行器：整合 Planner 和 ReAct Agent，协调整个研究流程
 """
-from typing import List, Dict, Any
 from src.agent.planner import ResearchPlanner
-from src.agent.react_agent import ReActAgent
-from langchain_core.tools import BaseTool
-from src.tools.report_writer import write_report
-import time
+from src.agent.react_agent import ReActAgent, create_agent
+from src.tools.arxiv_search import search_arxiv
+from src.tools.github_search import search_github_repositories
+from src.tools.paper_analyzer import analyze_paper, compare_papers
+from src.tools.code_generator import generate_code, explain_code
+from src.tools.report_writer import write_report, summarize_findings
 
 class ResearchExecutor:
-    """
-    研究执行器
-    """
+    """研究任务执行器"""
 
-    def __init__(self, tools: List[BaseTool], max_iterations: int = 15):
+    def __init__(self):
+        # 初始化所有工具
+        self.tools = [
+            search_arxiv,
+            search_github_repositories,
+            analyze_paper,
+            compare_papers,
+            generate_code,
+            explain_code,
+            # write_report,
+            summarize_findings,
+        ]
+        # 创建 ReAct Agent（不限制迭代次数，由 Planner 分解步骤控制）
+        self.agent = create_agent(self.tools)
         self.planner = ResearchPlanner()
-        self.tools = tools
-        self.max_iterations = max_iterations
-        self.agent = ReActAgent(tools=tools, max_iterations=max_iterations)
-        self.results = {
-            "papers": [],
-            "github": [],
-            "code_examples": [],
-            "comparisons": []
-        }
-    
-    def execute(self, user_query: str, verbose: bool = True) -> str:
-        """
-        执行完整研究流程
-        
-        Args:
-            user_query: 用户研究问题
-            verbose: 是否打印详细信息
-            
-        Returns:
-            最终研究报告
-        """
-        if verbose:
-            print("\n" + "="*60)
-            print("🔬 AI研究助手开始工作")
-            print("="*60)
 
-            print("\n📋 步骤1：任务规划")
-            print("-" * 30)
-        
-        # 清空Agent的历史
-        self.agent.clear_history()
-        
+    def execute(self, user_query: str) -> str:
+        """
+        执行完整研究流程：
+        1. Planner 分解任务
+        2. Agent 顺序执行每个子任务
+        3. 收集结果并生成最终报告
+        """
+        print(f"\n📋 开始研究: {user_query}")
+        print("=" * 60)
+
+        # Step 1: 任务分解
+        print("🔍 步骤1: 任务规划中...")
         steps = self.planner.plan(user_query)
-
-        if verbose:
-            for i, step in enumerate(steps, 1):
-                print(f"   {i}. {step}")
-
-            print("\n🚀 步骤2：执行任务")
-            print("-" * 30)
-        
-        step_results = []
+        print(f"规划完成，共 {len(steps)} 个子任务:")
         for i, step in enumerate(steps, 1):
-            if verbose:
-                print(f"\n  执行步骤 {i}/{len(steps)}：{step}")
+            print(f"   {i}. {step}")
 
-            enhanced_step = f"请使用可用的工具来完成以下任务：{step}"
-            result = self.agent.run(enhanced_step)
-
-            # 记录结果
-            step_result = f"步骤{i}：{step}\n结果：{result[:200]}..."
-            step_results.append(step_result)
-
-            if verbose:
-                print(f"  ✅ 步骤 {i} 完成")
-                print(f"  结果摘要：{result[:200]}...")
-
-            # 收集结果
-            self._collect_results(result)
-
-        if verbose:
-            print("\n📝 步骤3：生成研究报告")
-            print("-"*30)
-        
-        report = self._generate_report(user_query, step_results)
-
-        if verbose:
-            print("\n✅ 研究完成！")
-            print("="*60)
-
-        # 重置Agent状态
-        self.agent = ReActAgent(tools=self.tools, max_iterations=self.max_iterations)
-        self.clear_results()
-
-        return report
-    
-    def _collect_results(self, result: str):
-        """
-        收集步骤结果，分类存储
-        """
-        if "论文" in result or "arxiv" in result or "paper" in result.lower():
-            self.results["papers"].append(result)
-        elif "github" in result or "仓库" in result or "代码" in result.lower():
-            self.results["github"].append(result)
-        elif "```" in result or "代码示例" in result:
-            self.results["code_examples"].append(result)
-        elif "对比" in result or "比较" in result:
-            self.results["comparisons"].append(result)
-
-    def _generate_report(self, user_query: str, step_results: List[str]) -> str:
-        """
-        生成最终研究报告
-        """
-        try:
-            report = write_report.invoke({
-                "topic": user_query,
-                "research_data": self.results
-            })
-
-            return report
-        
-        except Exception as e:
-            return f"""# {user_query} 研究报告
-
-## 执行过程
-{chr(10).join([f'- {r}' for r in step_results])}
-
-## 收集资料统计
-- 论文资料：{len(self.results['papers'])}篇
-- GitHub项目：{len(self.results['github'])}个
-- 代码示例：{len(self.results['code_examples'])}个
-- 对比分析：{len(self.results['comparisons'])}项
-
-## 说明
-报告生成失败：{str(e)}
-使用简单模板替代。
-"""
-    
-    def clear_results(self):
-        """
-        清空结果
-        """
-        self.results = {
+        # Step 2: 顺序执行子任务，收集结果
+        research_data = {
             "papers": [],
             "github": [],
             "code_examples": [],
             "comparisons": []
         }
 
-def research(user_query: str, tools: List[BaseTool], verbose: bool = True) -> str:
-    """
-    执行研究流程的快捷函数
-    """
-    executor = ResearchExecutor(tools)
-    return executor.execute(user_query, verbose)
+        for idx, step in enumerate(steps, 1):
+            print(f"\n⚡ 执行子任务 {idx}/{len(steps)}: {step}")
+            print("-" * 40)
+
+            # 每个子任务使用独立的 Agent 实例（或清空历史）避免上下文干扰
+            # 这里我们使用同一个 agent 但每次调用 run_step 会新建临时历史
+            result = self.agent.run_step(step)
+
+            # 根据步骤描述分类存储结果（可根据实际需要优化分类逻辑）
+            step_lower = step.lower()
+            if "论文" in step_lower or "arxiv" in step_lower or "文献" in step_lower:
+                research_data["papers"].append(result)
+            elif "github" in step_lower or "仓库" in step_lower or "代码库" in step_lower:
+                research_data["github"].append(result)
+            elif "代码" in step_lower or "生成" in step_lower and "代码" in step_lower:
+                research_data["code_examples"].append(result)
+            elif "对比" in step_lower or "比较" in step_lower:
+                research_data["comparisons"].append(result)
+            else:
+                # 默认归入杂项，报告生成时会用到所有结果
+                # 这里简单处理，将无法分类的结果附加到某个部分（例如 papers）
+                research_data["papers"].append(result)
+
+            print(f"✅ 子任务完成")
+
+        # Step 3: 生成最终报告
+        print("\n📝 步骤3: 生成研究报告...")
+        final_report = write_report.invoke({
+            "topic": user_query,
+            "research_data": research_data
+        })
+
+        print("\n" + "=" * 60)
+        print("🎉 研究完成！")
+        return final_report
+
+    def clear_history(self):
+        """清空 Agent 历史"""
+        self.agent.clear_history()
+
 
 if __name__ == "__main__":
-    from src.tools.arxiv_search import search_arxiv
-    from src.tools.github_search import search_github_repositories
-    from src.tools.paper_analyzer import analyze_paper
-    from src.tools.code_generator import generate_code
-
-    tools = [search_arxiv, search_github_repositories, analyze_paper, generate_code, write_report]
-
-    result = research("LoRA微调技术的最新进展有哪些？", tools)
-    print("\n最终研究报告：")
-    print(result)
+    # 测试执行器
+    executor = ResearchExecutor()
+    query = "Transformer 和 BERT 在文本分类任务中的对比"
+    report = executor.execute(query)
+    print("\n" + report)

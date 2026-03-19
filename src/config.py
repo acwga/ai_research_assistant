@@ -6,7 +6,7 @@ load_dotenv()
 # ==============================
 # LLM 配置
 # ==============================
-MODEL_NAME = "qwen3.5-plus"
+MODEL_NAME = "qwen3-max-preview"
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 OLLAMA_BASE_URL = "http://localhost:11434/v1"
 TEMPERATURE = 0.7

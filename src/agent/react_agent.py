@@ -43,7 +43,7 @@ class ReActAgent:
         """
         messages = state["messages"]
 
-        MAX_HISTORY = 15
+        MAX_HISTORY = 8
         if len(messages) > MAX_HISTORY:
             messages = messages[-MAX_HISTORY:]
 
@@ -69,11 +69,11 @@ class ReActAgent:
 
         ai_message = response.choices[0].message.content
 
-        # # === 调试：打印模型原始输出 ===
-        # print("\n===== 模型原始输出 =====")
-        # print(ai_message)
-        # print("========================\n")
-        # # =============================
+        # === 调试：打印模型原始输出 ===
+        print("\n===== 模型原始输出 =====")
+        print(ai_message)
+        print("========================\n")
+        # =============================
 
         # 检查输出中是否包含 Action: 或 Final Answer:（忽略大小写）
         if not ("Action:" in ai_message or "Final Answer:" in ai_message):
@@ -224,6 +224,30 @@ class ReActAgent:
                 return last_msg.content
         
         return "未能生成最终答案"
+    
+    def run_step(self, step_query: str) -> str:
+        """每个子步骤使用全新历史，避免跨步骤累积"""
+        # 每次子步骤都新建临时历史
+        temp_history = [HumanMessage(content=step_query)]
+        
+        initial_state = {
+            "messages": temp_history,
+            "user_query": step_query,
+            "iteration": 0
+        }
+        
+        final_state = None
+        for state in self.graph.stream(initial_state):
+            final_state = state
+        
+        # 提取答案
+        if final_state and "llm" in final_state:
+            last_msg = final_state["llm"]["messages"][-1].content
+            if "Final Answer:" in last_msg:
+                return last_msg.split("Final Answer:")[-1].strip()
+            return last_msg
+        
+        return "未能生成结果"
     
     def clear_history(self):
         """

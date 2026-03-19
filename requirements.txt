@@ -1,0 +1,17 @@
+# 核心依赖
+langchain>=0.1.0
+langchain-community>=0.0.10
+langgraph>=0.0.20
+openai>=1.0.0
+
+# 工具依赖
+PyGithub>=2.0.0
+arxiv>=2.0.0
+
+# Web框架
+streamlit>=1.28.0
+
+# 其他工具
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+requests>=2.31.0

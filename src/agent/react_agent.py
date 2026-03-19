@@ -5,14 +5,14 @@ from typing import TypedDict, List
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph import StateGraph, START, END
-from src.config import OLLAMA_BASE_URL, MODEL_NAME
+from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
 from src.prompts import REACT_SYSTEM_PROMPT, get_tools_description
 from openai import OpenAI
 import json
 
 client = OpenAI(
-    api_key="ollama",
-    base_url=OLLAMA_BASE_URL
+    api_key=DASHSCOPE_API_KEY,
+    base_url=DASHSCOPE_BASE_URL
 )
 
 # 定义状态
@@ -43,6 +43,10 @@ class ReActAgent:
         """
         messages = state["messages"]
 
+        MAX_HISTORY = 15
+        if len(messages) > MAX_HISTORY:
+            messages = messages[-MAX_HISTORY:]
+
         # 检查迭代次数
         if state["iteration"] >= self.max_iterations:
             return {
@@ -65,11 +69,21 @@ class ReActAgent:
 
         ai_message = response.choices[0].message.content
 
+        # # === 调试：打印模型原始输出 ===
+        # print("\n===== 模型原始输出 =====")
+        # print(ai_message)
+        # print("========================\n")
+        # # =============================
+
         # 检查输出中是否包含 Action: 或 Final Answer:（忽略大小写）
         if not ("Action:" in ai_message or "Final Answer:" in ai_message):
             # 不符合格式，返回一条强制要求重试的消息
-            force_message = "格式错误：请严格按照 ReAct 格式输出，\
-            必须包含 Action: 和 Action Input: 或 Final Answer:。请重新生成。"
+            force_message = "格式错误：请严格按照 ReAct 格式输出，必须包含 Action: 和 Action Input: 或 Final Answer:。请重新生成。"
+
+            return {
+                "messages": messages + [AIMessage(content=force_message)],
+                "iteration": state["iteration"] + 1
+            }
         
         return {
             "messages": messages + [AIMessage(content=ai_message)],

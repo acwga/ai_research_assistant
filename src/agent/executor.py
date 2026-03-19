@@ -53,13 +53,16 @@ class ResearchExecutor:
             "comparisons": []
         }
 
+        # 维护全局上下文：研究主题
+        context = {"topic": user_query}
+
         for idx, step in enumerate(steps, 1):
             print(f"\n⚡ 执行子任务 {idx}/{len(steps)}: {step}")
             print("-" * 40)
 
-            # 每个子任务使用独立的 Agent 实例（或清空历史）避免上下文干扰
-            # 这里我们使用同一个 agent 但每次调用 run_step 会新建临时历史
-            result = self.agent.run_step(step)
+            # 将研究主题注入步骤描述，帮助 Agent 理解上下文
+            enhanced_step = f"研究主题：{context['topic']}\n请完成以下任务：{step}"
+            result = self.agent.run_step(enhanced_step)
 
             # 根据步骤描述分类存储结果（可根据实际需要优化分类逻辑）
             step_lower = step.lower()

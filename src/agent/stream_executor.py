@@ -10,6 +10,10 @@ from src.tools.paper_analyzer import analyze_paper, compare_papers
 from src.tools.code_generator import generate_code, explain_code
 from src.tools.report_writer import write_report, summarize_findings
 from typing import Generator, Dict, Any
+from openai import OpenAI
+from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
+from src.prompts import SUMMARY_SYSTEM_PROMPT, SUMMARY_USER_PROMPT_TEMPLATE
+from collections import deque
 
 class StreamingResearchExecutor:
     """
@@ -36,6 +40,37 @@ class StreamingResearchExecutor:
         self.agent = create_agent(self.tools)
         self.planner = ResearchPlanner()
 
+        self.llm = OpenAI(
+            api_key=DASHSCOPE_API_KEY,
+            base_url=DASHSCOPE_BASE_URL
+        )
+        self.memory = deque(maxlen=5)
+
+    def _summarize_memory(self, step: str, result: str) -> str:
+        """
+        使用 LLM 将步骤结果压缩为一句摘要
+        """
+        prompt = SUMMARY_USER_PROMPT_TEMPLATE.format(
+            step=step,
+            result=result
+        )
+        try：
+            response = self.llm.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[
+                    {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=100
+            )
+            summary = response.choices[0].message.content.strip()
+            return summary
+        except Exception as e:
+            # 如果摘要失败，返回一个简单的截断
+            return result[:100] + "..."
+
+
     def execute(self, user_query: str) -> Generator[Dict[str, Any], None, None]:
         """
         执行完整研究流程，逐步产出：
@@ -55,10 +90,23 @@ class StreamingResearchExecutor:
             "comparisons": []
         }
 
+        # 清空记忆（每次新研究重置）
+        self.memory.clear()
+
+        # Step 2: 顺序执行子任务
         for idx, step in enumerate(steps, 1):
-            # 每个子任务使用独立的 Agent 实例（或清空历史）避免上下文干扰
-            # 这里我们使用同一个 agent 但每次调用 run_step 会新建临时历史
-            result = self.agent.run_step(step)
+            # 构建增强提示词：注入研究主题和已有记忆
+            enhanced_step = f"研究主题：{user_query}\n"
+            if self.memory:
+                memory_text = "\n".join([f"- 步骤{i+1}：{mem}" for i, mem in enumerate(self.memory)])
+                enhanced_step += f"\n已有研究进展：\n{memory_text}\n"
+            enhanced_step += f"\n请完成以下任务：{step}"
+
+            result = self.agent.run_step(enhanced_step)
+
+            # 生成摘要并存入记忆
+            summary = self._summarize_memory(step, result)
+            self.memory.append(summary)
 
             # 根据步骤描述分类存储结果（可根据实际需要优化分类逻辑）
             step_lower = step.lower()

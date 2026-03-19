@@ -69,11 +69,11 @@ class ReActAgent:
 
         ai_message = response.choices[0].message.content
 
-        # === 调试：打印模型原始输出 ===
-        print("\n===== 模型原始输出 =====")
-        print(ai_message)
-        print("========================\n")
-        # =============================
+        # # === 调试：打印模型原始输出 ===
+        # print("\n===== 模型原始输出 =====")
+        # print(ai_message)
+        # print("========================\n")
+        # # =============================
 
         # 检查输出中是否包含 Action: 或 Final Answer:（忽略大小写）
         if not ("Action:" in ai_message or "Final Answer:" in ai_message):

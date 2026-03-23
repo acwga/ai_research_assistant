@@ -5,6 +5,7 @@ from langchain_core.tools import tool
 from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
 from src.prompts import PLANNER_PROMPT
 from openai import OpenAI
+from src.logger import get_logger
 
 client = OpenAI(
     api_key=DASHSCOPE_API_KEY,
@@ -16,8 +17,8 @@ class ResearchPlanner:
     研究任务规划器
     """
     def __init__(self):
-
         self.llm = client
+        self.logger = get_logger("planner")
 
     def plan(self, user_query: str) -> list:
         """
@@ -31,6 +32,7 @@ class ResearchPlanner:
     """
         # 构建提示词
         prompt = PLANNER_PROMPT.format(user_query=user_query)
+        self.logger.info(f"开始规划任务，用户查询：{user_query}")
 
         # 生成计划
         try:
@@ -46,15 +48,17 @@ class ResearchPlanner:
 
             plan_text = response.choices[0].message.content.strip()
             # 解析计划文本
+            self.logger.debug(f"规划原始输出：{plan_text}")
             steps = self._parse_plan(plan_text, user_query)
+            self.logger.info(f"规划完成，共 {len(steps)} 步：{steps}")
             if not self.validate_plan(steps):
-                print("生成的计划不合理，使用默认计划")
+                self.logger.warning("生成的计划不合理，使用默认计划")
                 steps = self._get_default_plan(user_query)
 
             return steps
         
         except Exception as e:
-            print(f"规划失败：{str(e)}")
+            self.logger.error(f"规划失败：{str(e)}")
             # 返回默认计划
             return self._get_default_plan(user_query)
         

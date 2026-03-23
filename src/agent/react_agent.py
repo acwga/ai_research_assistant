@@ -9,6 +9,7 @@ from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
 from src.prompts import REACT_SYSTEM_PROMPT, get_tools_description
 from openai import OpenAI
 import json
+from src.logger import get_logger
 
 client = OpenAI(
     api_key=DASHSCOPE_API_KEY,
@@ -36,11 +37,13 @@ class ReActAgent:
         )
         self.graph = self._build_graph()
         self.conversation_history = []
+        self.logger = get_logger("react_agent")
 
     def _call_llm(self, state: AgentState):
         """
         调用LLM获取下一步动作
         """
+        self.logger.debug(f"当前迭代次数：{state['iteration']}")
         messages = state["messages"]
 
         MAX_HISTORY = 8
@@ -68,17 +71,13 @@ class ReActAgent:
         )
 
         ai_message = response.choices[0].message.content
-
-        # # === 调试：打印模型原始输出 ===
-        # print("\n===== 模型原始输出 =====")
-        # print(ai_message)
-        # print("========================\n")
-        # # =============================
+        self.logger.info(f"LLM 原始输出：\n{ai_message}")
 
         # 检查输出中是否包含 Action: 或 Final Answer:（忽略大小写）
         if not ("Action:" in ai_message or "Final Answer:" in ai_message):
             # 不符合格式，返回一条强制要求重试的消息
             force_message = "格式错误：请严格按照 ReAct 格式输出，必须包含 Action: 和 Action Input: 或 Final Answer:。请重新生成。"
+            self.logger.warning("LLM 输出格式错误，强制重试")
 
             return {
                 "messages": messages + [AIMessage(content=force_message)],
@@ -100,6 +99,7 @@ class ReActAgent:
         # 解析Action
         action = self._parse_action(last_message)
         if not action:
+            self.logger.warning("解析 Action 失败，返回格式错误消息")
             return {
                 "messages": messages + [HumanMessage(content="格式错误，请按格式输出")],
                 "iteration": state["iteration"]
@@ -107,14 +107,17 @@ class ReActAgent:
         
         tool_name = action["name"]
         tool_input = action["input"]
+        self.logger.info(f"调用工具：{tool_name}，输入：{tool_input}")
 
         # 执行工具
         if tool_name not in self.tools:
             result = f"错误：工具 '{tool_name}' 不存在"
+            self.logger.error(result)
         else:
             try:
                 tool = self.tools[tool_name]
                 result = tool.invoke(tool_input)
+                self.logger.debug(f"工具返回结果（前200字符）：{result[:200]}...")
             except Exception as e:
                 result = f"工具执行出错：{str(e)}"
         
@@ -144,9 +147,11 @@ class ReActAgent:
             
             if action and action_input is not None:
                 return {"name": action, "input": action_input}
+            self.logger.debug(f"解析 Action 失败，未同时找到 Action 和 Action Input")
             return None
         
-        except:
+        except Exception as e:
+            self.logger.debug(f"解析 Action 时发生异常：{e}", exc_info=True)
             return None
         
     def _should_continue(self, state: AgentState):
@@ -192,7 +197,7 @@ class ReActAgent:
         """
         运行ReAct Agent
         """
-        print(f"\n开始研究：{user_query}")
+        self.logger.info(f"开始执行完整 Agent，用户查询：{user_query}")
 
         # 将新查询加入历史
         self.conversation_history.append(HumanMessage(content=user_query))
@@ -208,7 +213,7 @@ class ReActAgent:
         final_state = None
         for state in self.graph.stream(initial_state):
             final_state = state
-
+        
         # 提取最终答案并保存到历史
         if final_state and "llm" in final_state:
             for msg in final_state["llm"]["messages"]:
@@ -227,6 +232,7 @@ class ReActAgent:
     
     def run_step(self, step_query: str) -> str:
         """每个子步骤使用全新历史，避免跨步骤累积"""
+        self.logger.info(f"执行子步骤：{step_query[:100]}...")
         # 每次子步骤都新建临时历史
         temp_history = [HumanMessage(content=step_query)]
         
@@ -245,6 +251,7 @@ class ReActAgent:
             last_msg = final_state["llm"]["messages"][-1].content
             if "Final Answer:" in last_msg:
                 return last_msg.split("Final Answer:")[-1].strip()
+            self.logger.debug(f"子步骤完成，结果长度：{len(last_msg)}")
             return last_msg
         
         return "未能生成结果"

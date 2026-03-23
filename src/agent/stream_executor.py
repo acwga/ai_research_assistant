@@ -10,11 +10,11 @@ from src.tools.paper_analyzer import analyze_paper, compare_papers
 from src.tools.code_generator import generate_code, explain_code
 from src.tools.report_writer import write_report, summarize_findings
 from typing import Generator, Dict, Any
-from openai import OpenAI
-from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
 from src.prompts import SUMMARY_SYSTEM_PROMPT, SUMMARY_USER_PROMPT_TEMPLATE
 from collections import deque
 from langchain_community.chat_models import ChatOllama
+from langchain_core.messages import SystemMessage, HumanMessage
+from src.logger import get_logger
 
 class StreamingResearchExecutor:
     """
@@ -41,33 +41,33 @@ class StreamingResearchExecutor:
         self.agent = create_agent(self.tools)
         self.planner = ResearchPlanner()
 
-        self.llm = OpenAI(
-            api_key=DASHSCOPE_API_KEY,
-            base_url=DASHSCOPE_BASE_URL
-        )
         self.summary_llm = ChatOllama(
             model="qwen2.5:7b",
             temperature=0.3
         )
         self.memory = deque(maxlen=5)
+        self.logger = get_logger("executor")
 
     def _summarize_memory(self, step: str, result: str) -> str:
         """
         使用 LLM 将步骤结果压缩为一句摘要
         """
+        self.logger.debug(f"为步骤生成摘要：{step[:100]}...")
         prompt = SUMMARY_USER_PROMPT_TEMPLATE.format(
             step=step,
             result=result[:1000]
         )
         try:
             messages=[
-                    {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt}
+                    SystemMessage(content=SUMMARY_SYSTEM_PROMPT),
+                    HumanMessage(content=prompt)
             ]
-            response = self.summary_llm(messages)
+            response = self.summary_llm.invoke(messages)
             summary = response.content.strip()
+            self.logger.debug(f"摘要生成成功：{summary[:100]}...")
             return summary
         except Exception as e:
+            self.logger.error(f"摘要生成失败：{e}", exc_info=True)
             # 如果摘要失败，返回一个简单的截断
             return result[:100] + "..."
 
@@ -79,8 +79,10 @@ class StreamingResearchExecutor:
         - 每个步骤的结果: {"type": "step_result", "index": int, "step": str, "result": str}
         - 最终报告: {"type": "report", "report": str}
         """
+        self.logger.info(f"开始研究：{user_query}")
         # Step 1: 任务分解
         steps = self.planner.plan(user_query)
+        self.logger.info(f"规划完成，共 {len(steps)} 步：{steps}")
         yield {"type": "steps", "steps": steps}
 
         # Step 2: 顺序执行子任务，收集结果
@@ -96,17 +98,21 @@ class StreamingResearchExecutor:
 
         # Step 2: 顺序执行子任务
         for idx, step in enumerate(steps, 1):
+            self.logger.info(f"执行步骤 {idx}/{len(steps)}：{step}")
             # 构建增强提示词：注入研究主题和已有记忆
             enhanced_step = f"研究主题：{user_query}\n"
             if self.memory:
                 memory_text = "\n".join([f"- 步骤{i+1}：{mem}" for i, mem in enumerate(self.memory)])
                 enhanced_step += f"\n已有研究进展：\n{memory_text}\n"
             enhanced_step += f"\n请完成以下任务：{step}"
+            self.logger.debug(f"增强后的步骤提示：\n{enhanced_step}")
 
             result = self.agent.run_step(enhanced_step)
+            self.logger.info(f"步骤 {idx} 完成，结果长度：{len(result)} 字符")
 
             # 生成摘要并存入记忆
             summary = self._summarize_memory(step, result)
+            self.logger.debug(f"步骤 {idx} 摘要：{summary}")
             self.memory.append(summary)
 
             # 根据步骤描述分类存储结果（可根据实际需要优化分类逻辑）
@@ -132,10 +138,12 @@ class StreamingResearchExecutor:
             }
 
         # Step 3: 生成最终报告
+        self.logger.info("开始生成最终报告")
         final_report = write_report.invoke({
             "topic": user_query,
             "research_data": research_data
         })
+        self.logger.info(f"报告生成完成，长度：{len(final_report)} 字符")
 
         yield {"type": "report", "report": final_report}
 

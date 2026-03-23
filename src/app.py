@@ -88,6 +88,16 @@ if submitted and user_query:
             st.subheader("📝 最终研究报告")
             st.markdown(final_report)
 
+            # 生成文件名（使用用户查询和当前时间）
+            safe_query = user_query[:30].replace(' ', '_').replace('/', '_')
+            report_filename = f"研究报告_{safe_query}_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
+            st.download_button(
+                label="📥 下载报告 (Markdown)",
+                data=final_report,
+                file_name=report_filename,
+                mime="text/markdown"
+            )
+
             # 保存到历史
             st.session_state["history"].append({
                 "query": user_query,
@@ -103,3 +113,14 @@ if st.session_state["selected_report"]:
     st.subheader(f"📄 历史研究：{item['query']}")
     st.caption(item['time'])
     st.markdown(item['report'])
+
+    # 生成文件名（使用历史查询和时间）
+    safe_query = item['query'][:30].replace(' ', '_').replace('/', '_')
+    safe_time = item['time'].replace(' ', '_').replace(':', '')
+    filename = f"研究报告_{safe_query}_{safe_time}.md"
+    st.download_button(
+        label="📥 下载此报告 (Markdown)",
+        data=item['report'],
+        file_name=filename,
+        mime="text/markdown"
+    )

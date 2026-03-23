@@ -14,6 +14,7 @@ from openai import OpenAI
 from src.config import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, MODEL_NAME
 from src.prompts import SUMMARY_SYSTEM_PROMPT, SUMMARY_USER_PROMPT_TEMPLATE
 from collections import deque
+from langchain_community.chat_models import ChatOllama
 
 class StreamingResearchExecutor:
     """
@@ -44,6 +45,10 @@ class StreamingResearchExecutor:
             api_key=DASHSCOPE_API_KEY,
             base_url=DASHSCOPE_BASE_URL
         )
+        self.summary_llm = ChatOllama(
+            model="qwen2.5:7b",
+            temperature=0.3
+        )
         self.memory = deque(maxlen=5)
 
     def _summarize_memory(self, step: str, result: str) -> str:
@@ -55,16 +60,12 @@ class StreamingResearchExecutor:
             result=result[:1000]
         )
         try:
-            response = self.llm.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[
+            messages=[
                     {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
                     {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=100
-            )
-            summary = response.choices[0].message.content.strip()
+            ]
+            response = self.summary_llm(messages)
+            summary = response.content.strip()
             return summary
         except Exception as e:
             # 如果摘要失败，返回一个简单的截断

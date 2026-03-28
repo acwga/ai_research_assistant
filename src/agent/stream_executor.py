@@ -15,6 +15,7 @@ from collections import deque
 from langchain_community.chat_models import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage
 from src.logger import get_logger
+from src.evaluator.evaluator import evaluate_research
 
 class StreamingResearchExecutor:
     """
@@ -96,7 +97,7 @@ class StreamingResearchExecutor:
         # 清空记忆（每次新研究重置）
         self.memory.clear()
 
-        # Step 2: 顺序执行子任务
+        # 顺序执行子任务
         for idx, step in enumerate(steps, 1):
             self.logger.info(f"执行步骤 {idx}/{len(steps)}：{step}")
             # 构建增强提示词：注入研究主题和已有记忆
@@ -144,6 +145,12 @@ class StreamingResearchExecutor:
             "research_data": research_data
         })
         self.logger.info(f"报告生成完成，长度：{len(final_report)} 字符")
+
+        # 评估并记录日志
+        self.logger.info("开始评估研究报告质量")
+        evaluation_result = evaluate_research(final_report, research_data)
+        self.logger.info(f"评估完成，综合得分：{evaluation_result['overall_score']} / 10")
+        self.logger.debug(f"详细评估结果：{evaluation_result}")
 
         yield {"type": "report", "report": final_report}
 

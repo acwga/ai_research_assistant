@@ -17,7 +17,7 @@ client = OpenAI(
     base_url=DASHSCOPE_BASE_URL
 )
 
-@tool
+@tool(parse_docstring=True)
 def generate_code(technique: str, language: str = "python", context: str = "") -> str:
     """
     根据技术描述生成示例代码
@@ -53,7 +53,7 @@ def generate_code(technique: str, language: str = "python", context: str = "") -
     except Exception as e:
         return f"代码生成失败：{str(e)}"
     
-@tool
+@tool(parse_docstring=True)
 def explain_code(code: str, language: str = "python") -> str:
     """
     解释代码的功能和原理

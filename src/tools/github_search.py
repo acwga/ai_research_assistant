@@ -7,10 +7,17 @@ from typing import Optional
 from github import Github, GithubException
 from langchain_core.tools import tool
 from dotenv import load_dotenv
+import time
+import threading
 
 load_dotenv()
 
-@tool
+# 限流配置：每分钟最多调用次数
+RATIO_LIMIT_PER_MINUTE = 10
+_github_call_history = []
+_github_lock = threading.Lock()
+
+@tool(parse_docstring=True)
 def search_github_repositories(
     query: str,
     max_results: int = 5,
@@ -20,15 +27,27 @@ def search_github_repositories(
 ) -> str:
     """
     在 GitHub 上搜索代码仓库
+
     Args:
-        query (str): 搜索关键词
-        max_results (int): 返回的最大仓库数量，默认为 5
-        sort (str): 排序方式，默认为 "stars"
-        order (str): 排序顺序，默认为 "desc"
-        language (Optional[str]): 可选的编程语言过滤
+        query: 搜索关键词，可以包含仓库名称、描述等
+        max_results: 返回的最大结果数量，默认为 5
+        sort: 排序字段，默认为 "stars"，可选 "stars", "forks", "updated"
+        order: 排序方式，默认为 "desc"，可选 "asc", "desc"
+        language: 可选的编程语言过滤，例如 "python", "javascript" 等
+    
     Returns:
         str: 仓库名称、star数、描述、链接等信息的文本汇总
     """
+
+    # 限流检查
+    with _github_lock:
+        now = time.time()
+        while _github_call_history and _github_call_history[0] < now - 60:
+            _github_call_history.pop(0)
+        if len(_github_call_history) >= RATIO_LIMIT_PER_MINUTE:
+            return f"请求过于频繁，请稍后再试。限制：每分钟最多 {RATIO_LIMIT_PER_MINUTE} 次调用。"
+        _github_call_history.append(now)
+        
     token = os.getenv("GITHUB_TOKEN")
     if not token:
         return "GitHub 访问令牌未设置，请在环境变量中配置 GITHUB_TOKEN。"

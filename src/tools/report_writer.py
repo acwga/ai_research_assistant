@@ -18,23 +18,17 @@ client = OpenAI(
     base_url=DASHSCOPE_BASE_URL
 )
 
-@tool
+@tool(parse_docstring=True)
 def write_report(topic: str, research_data: dict) -> str:
     """
     根据研究数据生成最终报告
     
     Args:
         topic: 研究主题
-        research_data: 包含搜索和分析结果的字典，格式为：
-            {
-                "papers": [论文分析结果的列表],
-                "github": [GitHub仓库信息的列表],
-                "code_examples": [代码示例的列表],
-                "comparisons": [对比分析的列表]
-            }
+        research_data: 包含论文、GitHub仓库、代码示例、对比分析等信息的字典， 结构如下: {"papers": [...], "github": [...], "code_examples": [...], "comparisons": [...]}
     
     Returns:
-        格式化的研究报告
+        结构化的研究报告文本
     """
     # 整理研究数据
     papers_section = ""

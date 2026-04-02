@@ -17,7 +17,7 @@ client = OpenAI(
     base_url=DASHSCOPE_BASE_URL
 )
 
-@tool
+@tool(parse_docstring=True)
 def analyze_paper(paper_title: str, abstract: str) -> str:
     """
     分析论文摘要，提取核心贡献、方法、实验结果和优缺点
@@ -54,7 +54,7 @@ def analyze_paper(paper_title: str, abstract: str) -> str:
     except Exception as e:
         return f"论文分析失败：{str(e)}"
     
-@tool
+@tool(parse_docstring=True)
 def compare_papers(papers_info: list) -> str:
     """
     对比多篇论文的核心方法
